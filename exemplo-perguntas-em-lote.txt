@@ -1,0 +1,149 @@
+pergunta: "Você gosta de café?"
+opcoes e peso: "sim:1","nao:0","depende:0.5"
+
+pergunta: "Você prefere praia a montanha?"
+opcoes e peso: "praia:1","montanha:0","ambos:0.5"
+
+pergunta: "Você costuma acordar cedo?"
+opcoes e peso: "sim:1","nao:0","as vezes:0.5"
+
+pergunta: "Você gosta de ler livros?"
+opcoes e peso: "sim:1","nao:0","depende do livro:0.5"
+
+pergunta: "Você gosta de animais?"
+opcoes e peso: "sim:1","nao:0","só alguns:0.5"
+
+pergunta: "Você prefere trabalhar em equipe?"
+opcoes e peso: "sim:1","nao:0","depende do time:0.5"
+
+pergunta: "Você se considera criativo?"
+opcoes e peso: "sim:1","nao:0","um pouco:0.5"
+
+pergunta: "Você gosta de música clássica?"
+opcoes e peso: "sim:1","nao:0","as vezes:0.5"
+
+pergunta: "Você gosta de cozinhar?"
+opcoes e peso: "sim:1","nao:0","de vez em quando:0.5"
+
+pergunta: "Você pratica esportes?"
+opcoes e peso: "sim:1","nao:0","raramente:0.5"
+
+pergunta: "Você se sente confortável em público?"
+opcoes e peso: "sim:1","nao:0","depende:0.5"
+
+pergunta: "Você gosta de filmes de terror?"
+opcoes e peso: "sim:1","nao:0","alguns:0.5"
+
+pergunta: "Você fala outro idioma?"
+opcoes e peso: "sim:1","nao:0","estou aprendendo:0.5"
+
+pergunta: "Você prefere doce ou salgado?"
+opcoes e peso: "doce:1","salgado:0","depende:0.5"
+
+pergunta: "Você costuma planejar sua semana?"
+opcoes e peso: "sim:1","nao:0","quando preciso:0.5"
+
+pergunta: "Você já viajou para fora?"
+opcoes e peso: "sim:1","nao:0","pretendo:0.5"
+
+pergunta: "Você é pontual?"
+opcoes e peso: "sim:1","nao:0","na maioria das vezes:0.5"
+
+pergunta: "Você se distrai fácil?"
+opcoes e peso: "sim:0","nao:1","depende:0.5"
+
+pergunta: "Você gosta de pressão no trabalho?"
+opcoes e peso: "sim:1","nao:0","lido bem:0.5"
+
+pergunta: "Você gosta de desafios?"
+opcoes e peso: "sim:1","nao:0","alguns:0.5"
+
+pergunta: "Você prefere filmes ou séries?"
+opcoes e peso: "filmes:1","séries:0","ambos:0.5"
+
+pergunta: "Você gosta de clima frio?"
+opcoes e peso: "sim:1","nao:0","moderado:0.5"
+
+pergunta: "Você ouve podcasts?"
+opcoes e peso: "sim:1","nao:0","às vezes:0.5"
+
+pergunta: "Você joga videogames?"
+opcoes e peso: "sim:1","nao:0","de vez em quando:0.5"
+
+pergunta: "Você costuma meditar?"
+opcoes e peso: "sim:1","nao:0","já tentei:0.5"
+
+pergunta: "Você gosta de cidades grandes?"
+opcoes e peso: "sim:1","nao:0","depende da cidade:0.5"
+
+pergunta: "Você aprecia arte moderna?"
+opcoes e peso: "sim:1","nao:0","algumas:0.5"
+
+pergunta: "Você confia fácil nas pessoas?"
+opcoes e peso: "sim:1","nao:0","depende:0.5"
+
+pergunta: "Você gosta de aprender?"
+opcoes e peso: "sim:1","nao:0","quando tenho tempo:0.5"
+
+pergunta: "Você segue uma rotina?"
+opcoes e peso: "sim:1","nao:0","às vezes:0.5"
+
+pergunta: "Você gosta de matemática?"
+opcoes e peso: "sim:1","nao:0","depende do assunto:0.5"
+
+pergunta: "Você dorme cedo?"
+opcoes e peso: "sim:1","nao:0","depende:0.5"
+
+pergunta: "Você gosta de viajar?"
+opcoes e peso: "sim:1","nao:0","quando posso:0.5"
+
+pergunta: "Você é organizado?"
+opcoes e peso: "sim:1","nao:0","mais ou menos:0.5"
+
+pergunta: "Você conversa com estranhos?"
+opcoes e peso: "sim:1","nao:0","se necessário:0.5"
+
+pergunta: "Você acompanha notícias?"
+opcoes e peso: "sim:1","nao:0","quando me interessa:0.5"
+
+pergunta: "Você gosta de dançar?"
+opcoes e peso: "sim:1","nao:0","só em festas:0.5"
+
+pergunta: "Você prefere gatos ou cachorros?"
+opcoes e peso: "cachorros:1","gatos:0","gosto dos dois:0.5"
+
+pergunta: "Você gosta de prazos curtos?"
+opcoes e peso: "sim:1","nao:0","se necessário:0.5"
+
+pergunta: "Você é perfeccionista?"
+opcoes e peso: "sim:1","nao:0","depende:0.5"
+
+pergunta: "Você prefere café ou chá?"
+opcoes e peso: "café:1","chá:0","ambos:0.5"
+
+pergunta: "Você se irrita facilmente?"
+opcoes e peso: "sim:0","nao:1","às vezes:0.5"
+
+pergunta: "Você já fez trabalho voluntário?"
+opcoes e peso: "sim:1","nao:0","tenho interesse:0.5"
+
+pergunta: "Você gosta de planejar?"
+opcoes e peso: "sim:1","nao:0","quando necessário:0.5"
+
+pergunta: "Você costuma procrastinar?"
+opcoes e peso: "sim:0","nao:1","às vezes:0.5"
+
+pergunta: "Você prefere home office?"
+opcoes e peso: "sim:1","nao:0","depende:0.5"
+
+pergunta: "Você é competitivo?"
+opcoes e peso: "sim:1","nao:0","só em jogos:0.5"
+
+pergunta: "Você gosta de fazer listas?"
+opcoes e peso: "sim:1","nao:0","só quando preciso:0.5"
+
+pergunta: "Você prefere frio ou calor?"
+opcoes e peso: "frio:1","calor:0","intermediário:0.5"
+
+pergunta: "Você experimenta comidas novas?"
+opcoes e peso: "sim:1","nao:0","às vezes:0.5"
