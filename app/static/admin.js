@@ -526,8 +526,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Esconder spinner se estiver visível
   hideLoadingSpinner();
-
-  console.log('Admin.js carregado com sucesso!');
 });
 
 // ==================== FORMATAÇÃO DE PESO ====================

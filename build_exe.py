@@ -48,6 +48,10 @@ def build_executable():
         icon_path,
         "--clean",
         "--noconfirm",
+        "--hidden-import",
+        "pystray",
+        "--hidden-import",
+        "Pillow",
     ]
     command.append(main_script)
     try:

@@ -36,3 +36,8 @@ def create_tray_icon():
     # Inicializa o ícone da bandeja
     tray_icon = Icon("QuestionnaireManager", image, "Questionnaire Manager", menu)
     tray_icon.run()
+
+
+# Adiciona suporte para ambientes standalone
+if __name__ == "__main__":
+    create_tray_icon()

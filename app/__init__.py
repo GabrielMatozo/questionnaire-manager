@@ -18,10 +18,13 @@ def resource_path(relative_path):
 
 def create_app():
     # Detecta se está rodando empacotado (PyInstaller) ou em desenvolvimento
-
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    template_folder = os.path.join(base_dir, "templates")
-    static_folder = os.path.join(base_dir, "static")
+    if hasattr(sys, "_MEIPASS"):
+        template_folder = os.path.join(sys._MEIPASS, "app", "templates")
+        static_folder = os.path.join(sys._MEIPASS, "static")
+    else:
+        base_dir = os.path.abspath(os.path.dirname(__file__))
+        template_folder = os.path.join(base_dir, "templates")
+        static_folder = os.path.join(base_dir, "static")
 
     app = Flask(
         __name__,
