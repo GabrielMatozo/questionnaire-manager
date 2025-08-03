@@ -56,7 +56,7 @@ class Option(db.Model):
 class Resultado(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
-    respostas = db.Column(db.Text, nullable=False)  # JSON string
+    respostas = db.Column(db.Text, nullable=False)
     pontuacao_total = db.Column(db.Float, nullable=False, default=0.0)
     data = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 

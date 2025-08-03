@@ -1,7 +1,15 @@
+import os
+
+
 class Config:
-    # Configuração da chave secreta para segurança
     SECRET_KEY = "questionario-secret-key-2025"
-    # Caminho para o banco de dados SQLite
-    SQLALCHEMY_DATABASE_URI = "sqlite:///questionario.db"
-    # Desabilitar notificações de modificações no SQLAlchemy
+
+    # Pasta Documentos do usuário atual logado no Windows
+    USER_DOCUMENTS = os.path.join(os.path.expanduser("~"), "Documents")
+    DB_FOLDER = os.path.join(USER_DOCUMENTS, "questionario-manager")
+
+    # Cria a pasta se não existir
+    os.makedirs(DB_FOLDER, exist_ok=True)
+
+    SQLALCHEMY_DATABASE_URI = f"sqlite:///{os.path.join(DB_FOLDER, 'questionario.db')}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False

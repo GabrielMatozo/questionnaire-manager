@@ -10,7 +10,6 @@ bcrypt = Bcrypt()
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
-    # Verificar se já existe usuário cadastrado
     if User.query.first():
         flash("Já existe um usuário cadastrado!")
         return redirect(url_for("auth.login"))
@@ -29,7 +28,7 @@ def register():
         db.session.add(user)
         db.session.commit()
 
-        flash("Usuário cadastrado com sucesso!")
+        flash("Usuário cadastrado com sucesso!", "success")
         return redirect(url_for("auth.login"))
 
     return render_template("register.html")
@@ -47,7 +46,7 @@ def login():
             login_user(user)
             return redirect(url_for("main.admin"))
         else:
-            flash("Usuário ou senha incorretos!")
+            flash("Usuário ou senha incorretos!", "error")
 
     return render_template("login.html")
 
