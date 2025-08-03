@@ -19,7 +19,9 @@ questionnaire-manager/
 │   ├── main/
 │   │   ├── __init__.py
 │   │   ├── routes.py
+│   │   ├── api.py
 │   ├── static/
+│   │   ├── admin.js
 │   │   ├── style.css
 │   ├── templates/
 │       ├── admin.html
@@ -30,100 +32,70 @@ questionnaire-manager/
 ├── config.py
 ├── requirements.txt
 ├── run.py
+├── build_exe.py
+├── LICENSE
 ```
 
-- **app/**: Contém o código principal da aplicação.
-  - **auth/**: Gerencia autenticação e rotas relacionadas.
-  - **main/**: Contém as rotas principais da aplicação.
-  - **static/**: Arquivos estáticos como CSS.
-  - **templates/**: Templates HTML para renderização.
-- **config.py**: Configurações da aplicação.
-- **requirements.txt**: Dependências do projeto.
-- **run.py**: Arquivo principal para executar a aplicação.
+### Principais Arquivos e Funcionalidades
 
-## Funcionalidades
+- **`app/__init__.py`**: Inicializa a aplicação Flask e configura os blueprints.
+- **`app/models.py`**: Define os modelos do banco de dados, como `User`, `Question`, `Option` e `Resultado`.
+- **`app/auth/routes.py`**: Gerencia autenticação e rotas relacionadas ao login e cadastro.
+- **`app/main/routes.py`**: Contém as rotas principais, como submissão de questionários e administração.
+- **`app/main/api.py`**: Fornece uma API para buscar perguntas em formato JSON.
+- **`app/static/admin.js`**: Scripts JavaScript para melhorar a experiência do usuário no painel administrativo.
+- **`app/static/style.css`**: Estilos CSS para garantir um design moderno e responsivo.
+- **`app/templates/`**: Contém os templates HTML para renderização das páginas.
+- **`config.py`**: Configurações da aplicação, incluindo a conexão com o banco de dados SQLite.
+- **`run.py`**: Arquivo principal para executar a aplicação.
+- **`build_exe.py`**: Script para empacotar a aplicação em um executável usando PyInstaller.
+- **`LICENSE`**: Licença MIT para uso do projeto.
 
-- Autenticação de usuários.
-- Preenchimento e envio de questionários.
-- Interface amigável com Bootstrap.
-- Painel administrativo para gerenciar perguntas e visualizar resultados.
-- Importação de perguntas em lote.
-- Alteração de senha para administradores.
+### Como Executar
 
-## Requisitos
+1. Instale as dependências:
 
-Certifique-se de ter o Python instalado. As dependências podem ser instaladas usando o seguinte comando:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Execute a aplicação:
+
+   ```bash
+   python run.py
+   ```
+
+3. Acesse a aplicação no navegador em `http://127.0.0.1:5000`.
+
+### Empacotamento
+
+Para gerar um executável da aplicação, utilize o script `build_exe.py`:
 
 ```bash
-pip install -r requirements.txt
+python build_exe.py
 ```
 
-## Executando o Projeto
+### Exemplos de Uso
 
-1. Clone o repositório:
+#### Importação de Perguntas em Lote
 
-```bash
-git clone <URL_DO_REPOSITORIO>
-```
-
-2. Instale as dependências:
-
-```bash
-pip install -r requirements.txt
-```
-
-3. Execute a aplicação:
-
-```bash
-python run.py
-```
-
-4. Acesse a aplicação no navegador em `http://127.0.0.1:5000`.
-
-## Exemplos de Uso
-
-### Cadastro de Administrador
-
-Acesse a rota `/auth/register` para cadastrar o primeiro administrador.
-
-### Responder Questionário
-
-Acesse a página inicial e preencha o questionário com as perguntas cadastradas.
-
-### Gerenciar Perguntas
-
-No painel administrativo, você pode adicionar, editar ou excluir perguntas e opções.
-
-### Visualizar Resultados
-
-Os resultados dos questionários respondidos podem ser visualizados no painel administrativo.
-
-### Importar Questionários em Lote
-
-Para importar perguntas em lote, acesse o painel administrativo e utilize a funcionalidade de importação. O formato esperado para o arquivo de texto é:
+O arquivo `exemplo-perguntas-em-lote.txt` contém exemplos de perguntas que podem ser importadas em lote para o sistema. Cada linha segue o formato:
 
 ```
-pergunta: "Você gosta de maçã?"
-opcoes e peso: "sim:1","não:0","talvez:0.5"
-pergunta: "Você gosta de uva?"
-opcoes e peso: "sim:1","não:0","talvez:0.5"
+pergunta: "Você gosta de café?"
+opcoes e peso: "sim:1","nao:0","depende:0.5"
 ```
 
-#### Exemplo Completo
+Para importar, utilize o formulário disponível no painel administrativo.
 
-Copie e cole o seguinte conteúdo no campo de importação ou utilize o arquivo de exemplo disponível em `exemplo-perguntas-em-lote.txt`.
+#### Exportação de Resultados
 
-```
-pergunta: "Qual sua fruta favorita?"
-opcoes e peso: "maçã:1","banana:0.5","laranja:0.8"
-pergunta: "Você gosta de esportes?"
-opcoes e peso: "sim:1","não:0","às vezes:0.5"
-pergunta: "Qual sua cor favorita?"
-opcoes e peso: "azul:1","vermelho:0.8","verde:0.6"
-```
+Os resultados dos questionários podem ser exportados em formato CSV diretamente pelo painel administrativo. Basta clicar no botão "Exportar Resultados" e o arquivo será gerado automaticamente.
 
-Após preencher o campo ou carregar o arquivo, clique em "Importar Perguntas" para adicionar as perguntas ao sistema.
+#### Gerenciamento de Perguntas
 
-## Licença
+No painel administrativo, é possível adicionar, editar e excluir perguntas. Além disso, há suporte para gerenciar opções de resposta.
 
-Este projeto está licenciado sob a licença MIT. Veja o arquivo LICENSE para mais detalhes.
+### Licença
+
+Este projeto está licenciado sob a Licença MIT. Veja o arquivo `LICENSE` para mais detalhes.

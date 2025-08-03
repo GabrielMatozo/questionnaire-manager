@@ -380,8 +380,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         hideLoadingSpinner();
 
-        if (result.success) {
-          showToast(result.message || 'Opção excluída com sucesso!', 'success');
+        if (result.success || result.message === 'Opção não encontrada.') {
+          showToast('Opção excluída com sucesso!', 'success');
           setTimeout(() => location.reload(), 1000);
         } else {
           showToast(result.message || 'Erro ao excluir opção', 'danger');
@@ -580,33 +580,31 @@ function checkAndDeleteOption(button) {
     return;
   }
 
-  if (confirm('Tem certeza que deseja excluir esta opção?')) {
-    // Fazer requisição AJAX para deletar a opção
-    fetch('/delete_option_ajax', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      body: JSON.stringify({
-        option_id: optionId,
-        question_id: questionId,
-      }),
+  // Fazer requisição AJAX para deletar a opção
+  fetch('/delete_option_ajax', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: JSON.stringify({
+      option_id: optionId,
+      question_id: questionId,
+    }),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success) {
+        // Remover a linha da opção do DOM
+        const optionRow = button.closest('.option-row');
+        optionRow.remove();
+        showToast(data.message || 'Opção excluída com sucesso!', 'success');
+      } else {
+        showToast(data.message || 'Erro ao excluir opção', 'danger');
+      }
     })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.success) {
-          // Remover a linha da opção do DOM
-          const optionRow = button.closest('.option-row');
-          optionRow.remove();
-          showToast(data.message || 'Opção excluída com sucesso!', 'success');
-        } else {
-          showToast(data.message || 'Erro ao excluir opção', 'danger');
-        }
-      })
-      .catch((error) => {
-        console.error('Erro:', error);
-        showToast('Erro ao excluir opção', 'danger');
-      });
-  }
+    .catch((error) => {
+      console.error('Erro:', error);
+      showToast('Erro ao excluir opção', 'danger');
+    });
 }

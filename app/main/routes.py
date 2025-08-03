@@ -103,25 +103,25 @@ def export_resultados_csv():
 
 
 # Funções/rotas
-@main_bp.route("/admin/reorder_questions", methods=["POST"])
-@login_required
-def reorder_questions():
-    if not request.is_json:
-        return {"success": False, "message": "Requisição inválida."}, 400
-    data = request.get_json()
-    order_list = data.get("order")
-    if not order_list or not isinstance(order_list, list):
-        return {"success": False, "message": "Lista de ordem inválida."}, 400
-    try:
-        for idx, qid in enumerate(order_list):
-            question = Question.query.get(int(qid))
-            if question:
-                question.order = idx + 1
-        db.session.commit()
-        return {"success": True}, 200
-    except Exception as e:
-        db.session.rollback()
-        return {"success": False, "message": f"Erro ao salvar ordem: {str(e)}"}, 500
+# @main_bp.route("/admin/reorder_questions", methods=["POST"])
+# @login_required
+# def reorder_questions():
+#     if not request.is_json:
+#         return {"success": False, "message": "Requisição inválida."}, 400
+#     data = request.get_json()
+#     order_list = data.get("order")
+#     if not order_list or not isinstance(order_list, list):
+#         return {"success": False, "message": "Lista de ordem inválida."}, 400
+#     try:
+#         for idx, qid in enumerate(order_list):
+#             question = Question.query.get(int(qid))
+#             if question:
+#                 question.order = idx + 1
+#         db.session.commit()
+#         return {"success": True}, 200
+#     except Exception as e:
+#         db.session.rollback()
+#         return {"success": False, "message": f"Erro ao salvar ordem: {str(e)}"}, 500
 
 
 @main_bp.route("/delete_option_ajax", methods=["POST"])
