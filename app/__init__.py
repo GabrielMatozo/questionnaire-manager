@@ -2,13 +2,20 @@ import os
 import sys
 
 from flask import Flask
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_login import LoginManager
+from flask_migrate import Migrate
+from flask_wtf import CSRFProtect
 
 from .models import User, db
 
+migrate = Migrate()
+limiter = Limiter(key_func=get_remote_address)
+csrf = CSRFProtect()
+
 
 def resource_path(relative_path):
-    """Get absolute path to resource, works for dev and for PyInstaller."""
     try:
         base_path = sys._MEIPASS
     except Exception:
@@ -17,7 +24,6 @@ def resource_path(relative_path):
 
 
 def create_app():
-    # Detecta se está rodando empacotado (PyInstaller) ou em desenvolvimento
     if hasattr(sys, "_MEIPASS"):
         template_folder = os.path.join(sys._MEIPASS, "app", "templates")
         static_folder = os.path.join(sys._MEIPASS, "static")
@@ -34,9 +40,13 @@ def create_app():
     app.config.from_object("config.Config")
 
     db.init_app(app)
+    migrate.init_app(app, db)
+    csrf.init_app(app)
+    limiter.init_app(app)
+
     login_manager = LoginManager()
     login_manager.init_app(app)
-    login_manager.login_view = "auth.login"  # type: ignore
+    login_manager.login_view = "auth.login"
     login_manager.login_message = "Por favor, faça login para acessar esta página."
 
     @login_manager.user_loader
