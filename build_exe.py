@@ -4,17 +4,13 @@ import subprocess
 
 
 def build_executable():
-    logging.basicConfig(
-        level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
     logging.debug("Iniciando o processo de geração do executável...")
     try:
         subprocess.run(["pyinstaller", "--version"], check=True)
         logging.debug("PyInstaller está instalado.")
     except FileNotFoundError:
-        logging.error(
-            "PyInstaller não está instalado. Instale-o usando 'pip install pyinstaller'."
-        )
+        logging.error("PyInstaller não está instalado. Instale-o usando 'pip install pyinstaller'.")
         return
 
     main_script = "run.py"
