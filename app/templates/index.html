@@ -3,57 +3,74 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Questionário</title>
+    <title>{{ active_q.title if active_q else "Questionário" }}</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='puzzle.ico') }}" />
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='puzzle.png') }}" />
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
     <div class="container py-5">
       <div class="text-center mb-4">
-        <h1 class="display-5 text-primary">Questionário de Avaliação</h1>
+        <h1 class="display-5 text-primary">{{ active_q.title if active_q else "Questionário de Avaliação" }}</h1>
+        {% if active_q and active_q.description %}
+        <p class="lead">{{ active_q.description }}</p>
+        {% else %}
         <p class="lead">Responda as perguntas de acordo com sua experiência</p>
+        {% endif %}
       </div>
 
-      {% with messages = get_flashed_messages() %} {% if messages %} {% for message in messages %}
+      {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      {% for message in messages %}
       <div class="alert alert-warning">{{ message }}</div>
-      {% endfor %} {% endif %} {% endwith %}
+      {% endfor %}
+      {% endif %}
+      {% endwith %}
+
+      {% if questionnaires and questionnaires|length > 1 %}
+      <div class="text-center mb-4">
+        <div class="btn-group" role="group">
+          {% for q in questionnaires %}
+          <a href="{{ url_for('main.index', q=q.id) }}" class="btn btn-outline-primary {{ 'active' if active_q and active_q.id == q.id }}">{{ q.title }}</a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
 
       <div class="card shadow">
         <div class="card-body p-4">
+          {% if preview %}
+          <div class="alert alert-info text-center">Modo Preview — esta é uma visualização do questionário</div>
+          {% endif %}
           <form method="POST" action="{{ url_for('main.submit_questionario') }}">
             <div class="mb-4">
               <label for="nome" class="form-label h5">Seu nome:</label>
               <input type="text" class="form-control" id="nome" name="nome" required />
             </div>
+            {% if active_q %}
+            <input type="hidden" name="questionnaire_id" value="{{ active_q.id }}" />
+            {% endif %}
 
-            {% if questions %} {% for question in questions %}
+            {% if questions %}
+            {% for question in questions %}
             <div class="mb-4">
               <h5 class="mb-3">{{ loop.index }}. {{ question.text }}</h5>
               {% for option in question.options %}
               <div class="form-check mb-2">
-                <input
-                  class="form-check-input"
-                  type="radio"
-                  name="question_{{ question.id }}"
-                  id="q{{ question.id }}_{{ option.id }}"
-                  value="{{ option.id }}"
-                  required
-                />
-                <label class="form-check-label" for="q{{ question.id }}_{{ option.id }}">
-                  {{ option.text }}
-                </label>
+                <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="q{{ question.id }}_{{ option.id }}" value="{{ option.id }}" required />
+                <label class="form-check-label" for="q{{ question.id }}_{{ option.id }}">{{ option.text }}</label>
               </div>
               {% endfor %}
             </div>
             {% endfor %}
 
             <div class="text-center mt-4">
+              {% if preview %}
+              <a href="{{ url_for('main.admin') }}" class="btn btn-outline-secondary btn-lg">Voltar ao Admin</a>
+              {% else %}
               <button type="submit" class="btn btn-primary btn-lg px-5">Enviar Questionário</button>
+              {% endif %}
             </div>
             {% else %}
             <div class="alert alert-info text-center">
@@ -66,9 +83,9 @@
       </div>
 
       <div class="text-center mt-4">
-        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary">
-          Área do Administrador
-        </a>
+        {% if not preview %}
+        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary">Área do Administrador</a>
+        {% endif %}
       </div>
     </div>
   </body>

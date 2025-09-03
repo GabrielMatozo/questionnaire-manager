@@ -1,20 +1,31 @@
+:root {
+  --bg-gradient-start: #f8fafc;
+  --bg-gradient-end: #e0e7ff;
+  --card-shadow: 0 4px 24px 0 rgba(13, 110, 253, 0.08);
+  --text-color: #212529;
+}
+
+[data-bs-theme="dark"] {
+  --bg-gradient-start: #1a1d23;
+  --bg-gradient-end: #0d1321;
+  --card-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.3);
+  --text-color: #e4e6eb;
+}
+
 body {
-  background: linear-gradient(120deg, #f8fafc 0%, #e0e7ff 100%);
+  background: linear-gradient(120deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
   min-height: 100vh;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--text-color);
 }
 
 .card {
   border-radius: 1rem;
-  box-shadow: 0 4px 24px 0 rgba(13, 110, 253, 0.08);
+  box-shadow: var(--card-shadow);
   border: none;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5 {
+h1, h2, h3, h4, h5 {
   font-weight: 600;
 }
 
@@ -67,4 +78,18 @@ h5 {
 .modal-content {
   border-radius: 1rem;
   border: none;
+}
+
+.drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.sortable-ghost {
+  opacity: 0.4;
+  background: #c8e6c9;
 }

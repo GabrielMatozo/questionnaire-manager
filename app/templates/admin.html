@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br" data-bs-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,41 +11,132 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   </head>
   <body>
     <div class="container py-5">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="text-primary">Painel Administrativo</h2>
-        <div>
-          <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary me-2"
-            >Ver Questionário</a
-          >
+        <div class="d-flex gap-2 align-items-center">
+          <button id="dark-mode-toggle" class="btn btn-outline-secondary" title="Alternar modo escuro">🌓</button>
+          <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary">Ver Questionário</a>
           <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger">Sair</a>
         </div>
       </div>
 
-      {% with messages = get_flashed_messages() %} {% if messages %} {% for message in messages %}
+      {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      {% for message in messages %}
       <div class="alert alert-success alert-dismissible fade show" role="alert">
         {{ message }}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
       </div>
-      {% endfor %} {% endif %} {% endwith %}
+      {% endfor %}
+      {% endif %}
+      {% endwith %}
 
-      <!-- Seção de Resultados -->
+      <div class="row mb-4">
+        <div class="col-md-4">
+          <div class="card text-bg-primary">
+            <div class="card-body">
+              <h5 class="card-title">Total Perguntas</h5>
+              <p class="card-text display-6" id="total-questions">{{ questions|length }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card text-bg-success">
+            <div class="card-body">
+              <h5 class="card-title">Total Resultados</h5>
+              <p class="card-text display-6" id="total-results">{{ resultados|length }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card text-bg-info">
+            <div class="card-body">
+              <h5 class="card-title">Questionários</h5>
+              <p class="card-text display-6">{{ questionnaires|length }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="card mb-4">
         <div class="card-header">
+          <h4 class="mb-0">Dashboard</h4>
+        </div>
+        <div class="card-body">
+          <canvas id="resultsChart" height="100"></canvas>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h4 class="mb-0">Questionários</h4>
+          <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newQuestionnaireModal">+ Novo Questionário</button>
+        </div>
+        <div class="card-body">
+          {% if questionnaires %}
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead><tr><th>ID</th><th>Título</th><th>Ativo</th><th>Perguntas</th><th>Criado</th></tr></thead>
+              <tbody>
+                {% for q in questionnaires %}
+                <tr>
+                  <td>{{ q.id }}</td>
+                  <td>{{ q.title }}</td>
+                  <td>{{ "Sim" if q.active else "Não" }}</td>
+                  <td>{{ q.questions|length }}</td>
+                  <td>{{ q.created_at.strftime('%d/%m/%Y') }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p class="text-muted">Nenhum questionário cadastrado.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header">
+          <h4 class="mb-0">Filtros</h4>
+        </div>
+        <div class="card-body">
+          <form method="GET" action="{{ url_for('main.admin') }}" class="row g-3">
+            <div class="col-md-3">
+              <input type="text" class="form-control" name="search_nome" placeholder="Buscar por nome" value="{{ search_nome }}">
+            </div>
+            <div class="col-md-2">
+              <input type="date" class="form-control" name="data_inicio" value="{{ data_inicio }}">
+            </div>
+            <div class="col-md-2">
+              <input type="date" class="form-control" name="data_fim" value="{{ data_fim }}">
+            </div>
+            <div class="col-md-2">
+              <input type="number" step="0.1" class="form-control" name="pontuacao_min" placeholder="Pont. mínima" value="{{ pontuacao_min or '' }}">
+            </div>
+            <div class="col-md-3">
+              <button type="submit" class="btn btn-primary">Filtrar</button>
+              <a href="{{ url_for('main.admin') }}" class="btn btn-outline-secondary">Limpar</a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
           <h4 class="mb-0">Resultados dos Questionários</h4>
+          <div class="d-flex gap-2">
+            <button id="export-csv-btn" class="btn btn-outline-success btn-sm">CSV</button>
+            <button id="export-excel-btn" class="btn btn-outline-success btn-sm">Excel</button>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearAllResults()">Apagar Todos</button>
+          </div>
         </div>
         <div class="card-body">
           {% if resultados %}
-          <div class="d-flex justify-content-between mb-3">
-            <button id="export-csv-btn" class="btn btn-outline-success">
-              Exportar Resultados (CSV)
-            </button>
-            <button type="button" class="btn btn-outline-danger" onclick="clearAllResults()">
-              Apagar Todos os Resultados
-            </button>
-          </div>
           <div class="table-responsive">
             <table class="table table-striped">
               <thead>
@@ -61,24 +152,11 @@
                 <tr>
                   <td>{{ resultado.nome }}</td>
                   <td>{{ resultado.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                  <td><span class="badge bg-primary">{{ "%.2f"|format(resultado.pontuacao_total) }}</span></td>
                   <td>
-                    <span class="badge bg-primary"
-                      >{{ "%.2f"|format(resultado.pontuacao_total) }}</span
-                    >
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-info"
-                      data-bs-toggle="modal"
-                      data-bs-target="#modal{{ resultado.id }}"
-                    >
-                      Ver Respostas
-                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#modal{{ resultado.id }}">Ver Respostas</button>
                   </td>
                 </tr>
-
-                <!-- Modal de respostas -->
                 <div class="modal fade" id="modal{{ resultado.id }}" tabindex="-1">
                   <div class="modal-dialog modal-lg">
                     <div class="modal-content">
@@ -87,8 +165,8 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                       </div>
                       <div class="modal-body">
-                        {% set respostas_dict = resultado.get_respostas_dict() %} {% for resp_id,
-                        resp_data in respostas_dict.items() %}
+                        {% set respostas_dict = resultado.get_respostas_dict() %}
+                        {% for resp_id, resp_data in respostas_dict.items() %}
                         <div class="mb-3">
                           <strong>{{ resp_data.pergunta }}</strong><br />
                           <span class="text-muted">Resposta:</span> {{ resp_data.resposta }}<br />
@@ -98,9 +176,7 @@
                         {% endfor %}
                       </div>
                       <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                          Fechar
-                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                       </div>
                     </div>
                   </div>
@@ -109,41 +185,37 @@
               </tbody>
             </table>
           </div>
+          {% if total_pages > 1 %}
+          <nav>
+            <ul class="pagination justify-content-center">
+              {% for p in range(1, total_pages + 1) %}
+              <li class="page-item {{ 'active' if p == page }}">
+                <a class="page-link" href="{{ url_for('main.admin', page=p, per_page=per_page, search_nome=search_nome, data_inicio=data_inicio, data_fim=data_fim, pontuacao_min=pontuacao_min) }}">{{ p }}</a>
+              </li>
+              {% endfor %}
+            </ul>
+          </nav>
+          {% endif %}
           {% else %}
           <p class="text-muted">Nenhum questionário respondido ainda.</p>
           {% endif %}
         </div>
       </div>
 
-      <!-- Seção de Perguntas -->
       <div class="card mb-4">
         <div class="card-header">
           <h4 class="mb-0">Gerenciar Perguntas</h4>
         </div>
         <div class="card-body">
-          <!-- Importar Perguntas -->
           <div class="mb-4">
             <h5>Importar Perguntas em Lote</h5>
-            <form
-              id="import-questions-form"
-              action="{{ url_for('main.import_questions') }}"
-              method="POST"
-            >
+            <form id="import-questions-form" action="{{ url_for('main.import_questions') }}" method="POST">
               <div class="mb-3">
                 <label class="form-label">
                   Formato: uma pergunta por linha, seguida das opções<br />
-                  <small class="text-muted">
-                    Exemplo:<br />
-                    pergunta: "Você gosta de maçã?"<br />
-                    opcoes e peso: "sim:1","nao:0","talvez:0.5"
-                  </small>
+                  <small class="text-muted">Exemplo:<br />pergunta: "Você gosta de maçã?"<br />opcoes e peso: "sim:1","nao:0","talvez:0.5"</small>
                 </label>
-                <textarea
-                  class="form-control"
-                  name="questions_data"
-                  rows="4"
-                  placeholder="Cole aqui os dados das perguntas..."
-                ></textarea>
+                <textarea class="form-control" name="questions_data" rows="4" placeholder="Cole aqui os dados das perguntas..."></textarea>
               </div>
               <button type="submit" class="btn btn-info">Importar Perguntas</button>
             </form>
@@ -151,7 +223,6 @@
 
           <hr />
 
-          <!-- Adicionar Nova Pergunta -->
           <div class="mb-4">
             <h5>Adicionar Nova Pergunta</h5>
             <form id="add-question-form" action="{{ url_for('main.add_question') }}" method="POST">
@@ -159,47 +230,32 @@
                 <label class="form-label">Texto da Pergunta</label>
                 <textarea name="question_text" class="form-control" rows="2" required></textarea>
               </div>
-
+              <div class="mb-3">
+                <label class="form-label">Questionário (opcional)</label>
+                <select name="questionnaire_id" class="form-control">
+                  <option value="">Geral</option>
+                  {% for q in questionnaires %}
+                  <option value="{{ q.id }}">{{ q.title }}</option>
+                  {% endfor %}
+                </select>
+              </div>
               <div class="mb-3">
                 <label class="form-label">Opções de Resposta</label>
                 <div id="options-container">
                   <div class="row mb-2 option-row">
                     <div class="col-7">
-                      <input
-                        type="text"
-                        class="form-control"
-                        name="option_text"
-                        placeholder="Texto da opção"
-                        required
-                      />
+                      <input type="text" class="form-control" name="option_text" placeholder="Texto da opção" required />
                     </div>
                     <div class="col-3">
-                      <input
-                        type="text"
-                        class="form-control weight-input"
-                        name="option_weight"
-                        placeholder="Peso"
-                        step="0.1"
-                        inputmode="decimal"
-                        required
-                      />
+                      <input type="text" class="form-control weight-input" name="option_weight" placeholder="Peso" step="0.1" inputmode="decimal" required />
                     </div>
                     <div class="col-2">
-                      <button
-                        type="button"
-                        class="btn btn-danger btn-sm w-100"
-                        onclick="removeOption(this)"
-                      >
-                        ×
-                      </button>
+                      <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeOption(this)">×</button>
                     </div>
                   </div>
                 </div>
               </div>
-
-              <button type="button" class="btn btn-outline-secondary mb-3" onclick="addOption()">
-                + Adicionar Opção
-              </button>
+              <button type="button" class="btn btn-outline-secondary mb-3" onclick="addOption()">+ Adicionar Opção</button>
               <br />
               <button type="submit" class="btn btn-primary">Adicionar Pergunta</button>
             </form>
@@ -207,31 +263,26 @@
 
           <hr />
 
-          <!-- Lista de perguntas existentes -->
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h5>Perguntas Cadastradas</h5>
             {% if questions %}
-            <button type="button" class="btn btn-outline-danger" onclick="deleteAllQuestions()">
-              Apagar Todas as Perguntas
-            </button>
+            <button type="button" class="btn btn-outline-danger" onclick="deleteAllQuestions()">Apagar Todas as Perguntas</button>
             {% endif %}
           </div>
 
-          <div id="questions-list">
-            {% if questions %} {% for question in questions %}
-            <div class="card mb-3">
+          <div id="questions-list" class="sortable-questions">
+            {% if questions %}
+            {% for question in questions %}
+            <div class="card mb-3 question-card" data-question-id="{{ question.id }}">
               <div class="card-body">
-                <form
-                  class="edit-question-form"
-                  data-question-id="{{ question.id }}"
-                  action="{{ url_for('main.edit_question', question_id=question.id) }}"
-                  method="POST"
-                >
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="drag-handle badge bg-secondary" style="cursor: grab;">⠿</span>
+                  <span class="text-muted small">Ordem: {{ question.order }}</span>
+                </div>
+                <form class="edit-question-form" data-question-id="{{ question.id }}" action="{{ url_for('main.edit_question', question_id=question.id) }}" method="POST">
                   <div class="mb-3">
                     <label class="form-label">Pergunta {{ loop.index }}:</label>
-                    <textarea name="question_text" class="form-control" rows="2">
-{{ question.text }}</textarea
-                    >
+                    <textarea name="question_text" class="form-control" rows="2">{{ question.text }}</textarea>
                   </div>
 
                   <div class="mb-3">
@@ -240,61 +291,29 @@
                       {% for option in question.options %}
                       <div class="row mb-2 option-row" id="option-row-{{ option.id }}">
                         <div class="col-7">
-                          <input
-                            type="text"
-                            class="form-control"
-                            name="option_text_{{ option.id }}"
-                            value="{{ option.text }}"
-                          />
+                          <input type="text" class="form-control" name="option_text_{{ option.id }}" value="{{ option.text }}" />
                         </div>
                         <div class="col-3">
-                          <input
-                            type="text"
-                            class="form-control weight-input"
-                            name="option_weight_{{ option.id }}"
-                            value="{% if option.weight == option.weight|int %}{{ option.weight|int }}{% else %}{{ option.weight|replace('.', ',') }}{% endif %}"
-                            step="0.1"
-                            inputmode="decimal"
-                          />
+                          <input type="text" class="form-control weight-input" name="option_weight_{{ option.id }}" value="{% if option.weight == option.weight|int %}{{ option.weight|int }}{% else %}{{ option.weight|replace('.', ',') }}{% endif %}" step="0.1" inputmode="decimal" />
                         </div>
                         <div class="col-2">
-                          <button
-                            type="button"
-                            class="btn btn-danger btn-sm w-100 delete-option-btn"
-                            data-option-id="{{ option.id }}"
-                            data-question-id="{{ question.id }}"
-                            onclick="checkAndDeleteOption(this)"
-                          >
-                            ×
-                          </button>
+                          <button type="button" class="btn btn-danger btn-sm w-100 delete-option-btn" data-option-id="{{ option.id }}" data-question-id="{{ question.id }}" onclick="checkAndDeleteOption(this)">×</button>
                         </div>
                       </div>
                       {% endfor %}
                     </div>
-
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary btn-sm mt-2"
-                      onclick="addOptionToQuestion('{{ question.id }}')"
-                    >
-                      + Adicionar Opção
-                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="addOptionToQuestion('{{ question.id }}')">+ Adicionar Opção</button>
                   </div>
 
                   <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-success btn-sm">Salvar Alterações</button>
-                    <button
-                      type="button"
-                      class="btn btn-danger btn-sm delete-question-btn"
-                      data-question-id="{{ question.id }}"
-                    >
-                      Excluir Pergunta
-                    </button>
+                    <button type="button" class="btn btn-danger btn-sm delete-question-btn" data-question-id="{{ question.id }}">Excluir Pergunta</button>
                   </div>
                 </form>
               </div>
             </div>
-            {% endfor %} {% else %}
+            {% endfor %}
+            {% else %}
             <div class="alert alert-info text-center">
               <h5>Nenhuma pergunta cadastrada ainda</h5>
               <p>Use o formulário acima para adicionar a primeira pergunta.</p>
@@ -304,17 +323,124 @@
         </div>
       </div>
 
-      <!-- Seção de Alterar Senha -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h4 class="mb-0">Templates de Perguntas</h4>
+        </div>
+        <div class="card-body">
+          <form action="{{ url_for('main.save_template') }}" method="POST" class="row g-3 mb-3">
+            <div class="col-md-3">
+              <input type="text" class="form-control" name="template_name" placeholder="Nome do template" required>
+            </div>
+            <div class="col-md-4">
+              <input type="text" class="form-control" name="template_question_text" placeholder="Texto da pergunta" required>
+            </div>
+            <div class="col-md-3">
+              <input type="text" class="form-control" name="template_options" placeholder='[{"text":"sim","weight":1}]' required>
+            </div>
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-primary">Salvar Template</button>
+            </div>
+          </form>
+          {% if templates %}
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead><tr><th>Nome</th><th>Pergunta</th><th>Ações</th></tr></thead>
+              <tbody>
+                {% for t in templates %}
+                <tr>
+                  <td>{{ t.name }}</td>
+                  <td>{{ t.question_text }}</td>
+                  <td>
+                    <form action="{{ url_for('main.apply_template', tid=t.id) }}" method="POST" style="display:inline">
+                      <button type="submit" class="btn btn-sm btn-success">Aplicar</button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h4 class="mb-0">Compartilhamento</h4>
+          <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#shareLinkModal">+ Novo Link</button>
+        </div>
+        <div class="card-body">
+          {% if share_links %}
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead><tr><th>Token</th><th>Questionário</th><th>Ativo</th><th>Expira</th><th>Link</th></tr></thead>
+              <tbody>
+                {% for sl in share_links %}
+                <tr>
+                  <td><code>{{ sl.token }}</code></td>
+                  <td>{{ sl.questionnaire_id or "Geral" }}</td>
+                  <td>{{ "Sim" if sl.active else "Não" }}</td>
+                  <td>{{ sl.expires_at.strftime('%d/%m/%Y') if sl.expires_at else "Nunca" }}</td>
+                  <td><a href="{{ url_for('main.shared_questionnaire', token=sl.token, _external=True) }}" target="_blank">Abrir</a></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p class="text-muted">Nenhum link de compartilhamento criado.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header">
+          <h4 class="mb-0">Webhooks</h4>
+        </div>
+        <div class="card-body">
+          <form action="{{ url_for('main.create_webhook') }}" method="POST" class="row g-3 mb-3">
+            <div class="col-md-6">
+              <input type="url" class="form-control" name="webhook_url" placeholder="URL do webhook" required>
+            </div>
+            <div class="col-md-4">
+              <select class="form-control" name="webhook_event">
+                <option value="questionario_completo">Questionário Completo</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-primary">Adicionar</button>
+            </div>
+          </form>
+          {% if webhooks %}
+          <ul class="list-group">
+            {% for wh in webhooks %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <span>{{ wh.url }} <span class="badge bg-{{ 'success' if wh.active else 'secondary' }}">{{ "Ativo" if wh.active else "Inativo" }}</span></span>
+              <button class="btn btn-sm btn-outline-secondary toggle-webhook" data-id="{{ wh.id }}">{{ "Desativar" if wh.active else "Ativar" }}</button>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header">
+          <h4 class="mb-0">Preview do Questionário</h4>
+        </div>
+        <div class="card-body">
+          <a href="{{ url_for('main.preview') }}" target="_blank" class="btn btn-outline-primary">Abrir Preview</a>
+          <small class="text-muted ms-2">Visualização de como o questionário aparece para os usuários</small>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <h4 class="mb-0">Alterar Senha</h4>
         </div>
         <div class="card-body">
-          <form
-            id="change-password-form"
-            method="POST"
-            action="{{ url_for('main.change_password') }}"
-          >
+          <form id="change-password-form" method="POST" action="{{ url_for('main.change_password') }}">
             <div class="row">
               <div class="col-md-6">
                 <label class="form-label">Nova Senha</label>
@@ -329,7 +455,90 @@
       </div>
     </div>
 
+    <div class="modal fade" id="newQuestionnaireModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form action="{{ url_for('main.create_questionnaire') }}" method="POST">
+            <div class="modal-header">
+              <h5 class="modal-title">Novo Questionário</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">Título</label>
+                <input type="text" class="form-control" name="title" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Descrição</label>
+                <textarea class="form-control" name="description" rows="2"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="submit" class="btn btn-primary">Criar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="shareLinkModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form action="{{ url_for('main.create_share_link') }}" method="POST">
+            <div class="modal-header">
+              <h5 class="modal-title">Novo Link Compartilhável</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">Questionário</label>
+                <select name="questionnaire_id" class="form-control">
+                  <option value="">Geral</option>
+                  {% for q in questionnaires %}
+                  <option value="{{ q.id }}">{{ q.title }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Expirar em (dias)</label>
+                <input type="number" class="form-control" name="expires_days" placeholder="Deixe vazio para não expirar">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="submit" class="btn btn-primary">Criar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="{{ url_for('static', filename='admin.js') }}"></script>
+    <script>
+      const resultadosData = {{ resultados|tojson | safe }};
+      const resultsChart = document.getElementById('resultsChart');
+      if (resultsChart && resultadosData.length > 0) {
+        const labels = resultadosData.slice(0, 20).map(r => r.nome);
+        const scores = resultadosData.slice(0, 20).map(r => r.pontuacao_total);
+        new Chart(resultsChart, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Pontuação',
+              data: scores,
+              backgroundColor: 'rgba(13, 110, 253, 0.6)',
+              borderColor: 'rgba(13, 110, 253, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+      }
+    </script>
   </body>
 </html>
