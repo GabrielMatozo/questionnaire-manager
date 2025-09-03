@@ -1,8 +1,12 @@
+from datetime import datetime
+
 from flask import flash, redirect, render_template, request, url_for
 from flask_bcrypt import Bcrypt
 from flask_login import login_required, login_user, logout_user
+from marshmallow import ValidationError
 
 from ..models import User, db
+from ..schemas import login_schema, register_schema
 from . import auth_bp
 
 bcrypt = Bcrypt()
@@ -15,8 +19,19 @@ def register():
         return redirect(url_for("auth.login"))
 
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        data = {
+            "username": request.form.get("username"),
+            "password": request.form.get("password"),
+        }
+
+        try:
+            register_schema.load(data)
+        except ValidationError as e:
+            flash(f"Erro de validação: {e.messages}")
+            return render_template("register.html")
+
+        username = data["username"]
+        password = data["password"]
 
         if not username or not password:
             flash("Preencha todos os campos!")
@@ -37,13 +52,26 @@ def register():
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        data = {
+            "username": request.form.get("username"),
+            "password": request.form.get("password"),
+        }
+
+        try:
+            login_schema.load(data)
+        except ValidationError as e:
+            flash(f"Erro de validação: {e.messages}")
+            return render_template("login.html")
+
+        username = data["username"]
+        password = data["password"]
 
         user = User.query.filter_by(username=username).first()
 
         if user and bcrypt.check_password_hash(user.password_hash, password):
             login_user(user)
+            user.last_active = datetime.utcnow()
+            db.session.commit()
             return redirect(url_for("main.admin"))
         else:
             flash("Usuário ou senha incorretos!", "error")

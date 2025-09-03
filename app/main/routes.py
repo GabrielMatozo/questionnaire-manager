@@ -1,29 +1,40 @@
 import csv
 import io
+import json
+from datetime import datetime
 
+import openpyxl
 from flask import flash, redirect, render_template, request, url_for
 from flask_bcrypt import Bcrypt
 from flask_login import current_user, login_required
 
-from ..models import Option, Question, Resultado, db
+from .. import limiter
+from ..models import (
+    Option,
+    Question,
+    Questionnaire,
+    QuestionTemplate,
+    Resultado,
+    ShareLink,
+    Webhook,
+    db,
+)
 from . import main_bp
 
 bcrypt = Bcrypt()
 
 
-# Rota para submissão do questionário
 @main_bp.route("/submit_questionario", methods=["POST"])
+@limiter.limit("10/minute")
 def submit_questionario():
     nome = request.form.get("nome")
+    qid = request.form.get("questionnaire_id", type=int)
     if not nome:
         flash("Nome é obrigatório!")
         return redirect("/")
 
-    # Coletar respostas
     respostas = {}
     pontuacao_total = 0.0
-
-    # Buscar todas as perguntas
     questions = Question.query.all()
 
     for question in questions:
@@ -38,15 +49,34 @@ def submit_questionario():
                 }
                 pontuacao_total += option.weight
 
-    # Salvar resultado no banco
     if respostas:
-        import json
-
         resultado = Resultado(
-            nome=nome, respostas=json.dumps(respostas), pontuacao_total=pontuacao_total
+            nome=nome,
+            respostas=json.dumps(respostas),
+            pontuacao_total=pontuacao_total,
+            user_id=current_user.id if current_user.is_authenticated else None,
+            questionnaire_id=qid,
         )
         db.session.add(resultado)
         db.session.commit()
+
+        webhooks = Webhook.query.filter_by(active=True).all()
+        for wh in webhooks:
+            try:
+                import requests
+
+                requests.post(
+                    wh.url,
+                    json={
+                        "nome": nome,
+                        "pontuacao": pontuacao_total,
+                        "respostas": respostas,
+                    },
+                    timeout=5,
+                )
+            except Exception:
+                pass
+
         flash(f"Questionário enviado com sucesso por {nome}!")
     else:
         flash("Nenhuma resposta foi fornecida!")
@@ -56,8 +86,290 @@ def submit_questionario():
 
 @main_bp.route("/")
 def index():
+    questionnaires = Questionnaire.query.filter_by(active=True).all()
+    qid = request.args.get("q", type=int)
+    active_q = None
+    if qid:
+        active_q = Questionnaire.query.get(qid)
+    if not active_q and questionnaires:
+        active_q = questionnaires[0]
+
+    if active_q:
+        questions = (
+            Question.query.filter_by(questionnaire_id=active_q.id).order_by(Question.order).all()
+        )
+    else:
+        questions = Question.query.order_by(Question.order).all()
+
+    share_token = request.args.get("share")
+    return render_template(
+        "index.html",
+        questions=questions,
+        questionnaires=questionnaires,
+        active_q=active_q,
+        share_token=share_token,
+    )
+
+
+@main_bp.route("/share/<token>")
+def shared_questionnaire(token):
+    link = ShareLink.query.filter_by(token=token, active=True).first()
+    if not link:
+        flash("Link inválido ou expirado!")
+        return redirect("/")
+
+    if link.expires_at and link.expires_at < datetime.utcnow():
+        link.active = False
+        db.session.commit()
+        flash("Link expirado!")
+        return redirect("/")
+
+    q = Questionnaire.query.get(link.questionnaire_id) if link.questionnaire_id else None
+    if q:
+        questions = Question.query.filter_by(questionnaire_id=q.id).order_by(Question.order).all()
+    else:
+        questions = Question.query.order_by(Question.order).all()
+
+    return render_template("index.html", questions=questions, share_token=token)
+
+
+@main_bp.route("/admin")
+@login_required
+def admin():
+    current_user.last_active = datetime.utcnow()
+    db.session.commit()
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    search_nome = request.args.get("search_nome", "", type=str).strip()
+    data_inicio = request.args.get("data_inicio", "", type=str).strip()
+    data_fim = request.args.get("data_fim", "", type=str).strip()
+    pontuacao_min = request.args.get("pontuacao_min", type=float)
+
+    query = Resultado.query
+    if search_nome:
+        query = query.filter(Resultado.nome.ilike(f"%{search_nome}%"))
+    if data_inicio:
+        try:
+            di = datetime.strptime(data_inicio, "%Y-%m-%d")
+            query = query.filter(Resultado.data >= di)
+        except ValueError:
+            pass
+    if data_fim:
+        try:
+            df = datetime.strptime(data_fim, "%Y-%m-%d")
+            query = query.filter(Resultado.data <= df)
+        except ValueError:
+            pass
+    if pontuacao_min is not None:
+        query = query.filter(Resultado.pontuacao_total >= pontuacao_min)
+
+    pagination = query.order_by(Resultado.data.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    resultados = pagination.items
+    total_pages = pagination.pages
+    total_results = pagination.total
+
     questions = Question.query.order_by(Question.order).all()
-    return render_template("index.html", questions=questions)
+    questionnaires = Questionnaire.query.all()
+    templates = QuestionTemplate.query.all()
+    webhooks = Webhook.query.all()
+    share_links = ShareLink.query.all()
+
+    return render_template(
+        "admin.html",
+        questions=questions,
+        resultados=resultados,
+        questionnaires=questionnaires,
+        templates=templates,
+        webhooks=webhooks,
+        share_links=share_links,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        total_results=total_results,
+        search_nome=search_nome,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        pontuacao_min=pontuacao_min,
+    )
+
+
+@main_bp.route("/admin/reorder_questions", methods=["POST"])
+@login_required
+def reorder_questions():
+    if not request.is_json:
+        return {"success": False, "message": "Requisição inválida."}, 400
+    data = request.get_json()
+    order_list = data.get("order")
+    if not order_list or not isinstance(order_list, list):
+        return {"success": False, "message": "Lista de ordem inválida."}, 400
+    try:
+        for idx, qid in enumerate(order_list):
+            question = Question.query.get(int(qid))
+            if question:
+                question.order = idx + 1
+        db.session.commit()
+        return {"success": True}, 200
+    except Exception as e:
+        db.session.rollback()
+        return {"success": False, "message": f"Erro ao salvar ordem: {str(e)}"}, 500
+
+
+@main_bp.route("/delete_option_ajax", methods=["POST"])
+@login_required
+def delete_option_ajax():
+    if not request.is_json:
+        return {"success": False, "message": "Requisição inválida."}, 400
+    data = request.get_json()
+    option_id = data.get("option_id")
+    question_id = data.get("question_id")
+    if not option_id or not question_id:
+        return {"success": False, "message": "Dados insuficientes."}, 400
+
+    option = Option.query.get(option_id)
+    if not option or str(option.question_id) != str(question_id):
+        return {"success": False, "message": "Opção não encontrada."}, 404
+
+    question = Question.query.get(question_id)
+    if question and len(question.options) <= 1:
+        return {
+            "success": False,
+            "message": "Não é possível excluir a única opção da pergunta!",
+        }, 400
+
+    db.session.delete(option)
+    db.session.commit()
+    return {"success": True, "message": "Opção excluída com sucesso!"}, 200
+
+
+@main_bp.route("/admin/preview")
+@login_required
+def preview():
+    qid = request.args.get("q", type=int)
+    if qid:
+        questions = Question.query.filter_by(questionnaire_id=qid).order_by(Question.order).all()
+    else:
+        questions = Question.query.order_by(Question.order).all()
+    return render_template("index.html", questions=questions, preview=True)
+
+
+@main_bp.route("/admin/questionnaires", methods=["POST"])
+@login_required
+def create_questionnaire():
+    title = request.form.get("title", "Novo Questionário")
+    description = request.form.get("description", "")
+    q = Questionnaire(title=title, description=description)
+    db.session.add(q)
+    db.session.commit()
+    flash("Questionário criado com sucesso!")
+    return redirect(url_for("main.admin"))
+
+
+@main_bp.route("/admin/templates", methods=["POST"])
+@login_required
+def save_template():
+    name = request.form.get("template_name")
+    question_text = request.form.get("template_question_text")
+    options = request.form.get("template_options")
+    if name and question_text and options:
+        t = QuestionTemplate(name=name, question_text=question_text, options_json=options)
+        db.session.add(t)
+        db.session.commit()
+        flash("Template salvo com sucesso!")
+    return redirect(url_for("main.admin"))
+
+
+@main_bp.route("/admin/templates/<int:tid>/apply", methods=["POST"])
+@login_required
+def apply_template(tid):
+    t = QuestionTemplate.query.get_or_404(tid)
+    q = Question(text=t.question_text)
+    db.session.add(q)
+    db.session.flush()
+    for opt in t.get_options():
+        o = Option(text=opt.get("text", ""), weight=float(opt.get("weight", 0)), question_id=q.id)
+        db.session.add(o)
+    db.session.commit()
+    flash(f"Template '{t.name}' aplicado com sucesso!")
+    return redirect(url_for("main.admin"))
+
+
+@main_bp.route("/admin/webhooks", methods=["POST"])
+@login_required
+def create_webhook():
+    url = request.form.get("webhook_url")
+    event = request.form.get("webhook_event", "questionario_completo")
+    if url:
+        wh = Webhook(url=url, event=event)
+        db.session.add(wh)
+        db.session.commit()
+        flash("Webhook criado com sucesso!")
+    return redirect(url_for("main.admin"))
+
+
+@main_bp.route("/admin/webhooks/<int:wid>/toggle", methods=["POST"])
+@login_required
+def toggle_webhook(wid):
+    wh = Webhook.query.get_or_404(wid)
+    wh.active = not wh.active
+    db.session.commit()
+    return {"success": True}, 200
+
+
+@main_bp.route("/admin/share-links", methods=["POST"])
+@login_required
+def create_share_link():
+    qid = request.form.get("questionnaire_id", type=int)
+    expires_days = request.form.get("expires_days", type=int)
+    expires_at = None
+    if expires_days:
+        from datetime import timedelta
+
+        expires_at = datetime.utcnow() + timedelta(days=expires_days)
+    link = ShareLink(questionnaire_id=qid, expires_at=expires_at)
+    db.session.add(link)
+    db.session.commit()
+    flash(f"Link compartilhável criado! Token: {link.token}")
+    return redirect(url_for("main.admin"))
+
+
+@main_bp.route("/admin/export_excel", methods=["GET"])
+@login_required
+def export_resultados_excel():
+    resultados = Resultado.query.order_by(Resultado.data.desc()).all()
+    wb = openpyxl.Workbook()
+    ws = wb.active or wb.create_sheet()
+    ws.title = "Resultados"
+    ws.append(["Nome", "Data/Hora", "Pontuação Total", "Média", "Respostas"])
+    for r in resultados:
+        rd = r.get_respostas_dict()
+        total = len(rd)
+        media = r.pontuacao_total / total if total > 0 else 0
+        resp_str = " | ".join(
+            [f"{v['pergunta']} => {v['resposta']} (Peso: {v['peso']})" for v in rd.values()]
+        )
+        ws.append(
+            [
+                r.nome,
+                r.data.strftime("%d/%m/%Y %H:%M"),
+                r.pontuacao_total,
+                round(media, 2),
+                resp_str,
+            ]
+        )
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return (
+        output.getvalue(),
+        200,
+        {
+            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Content-Disposition": "attachment; filename=resultados.xlsx",
+        },
+    )
 
 
 @main_bp.route("/admin/export_resultados_csv", methods=["GET"])
@@ -66,21 +378,14 @@ def export_resultados_csv():
     resultados = Resultado.query.order_by(Resultado.data.desc()).all()
     fieldnames = ["Nome", "Data/Hora", "Pontuação Total", "Média", "Respostas"]
     output = io.StringIO()
-    writer = csv.DictWriter(
-        output, fieldnames=fieldnames, delimiter=";", quoting=csv.QUOTE_MINIMAL
-    )
+    writer = csv.DictWriter(output, fieldnames=fieldnames, delimiter=";", quoting=csv.QUOTE_MINIMAL)
     writer.writeheader()
     for r in resultados:
-        respostas_dict = (
-            r.get_respostas_dict() if hasattr(r, "get_respostas_dict") else {}
-        )
-        total_perguntas = len(respostas_dict)
+        rd = r.get_respostas_dict() if hasattr(r, "get_respostas_dict") else {}
+        total_perguntas = len(rd)
         media = r.pontuacao_total / total_perguntas if total_perguntas > 0 else 0
         respostas_str = " | ".join(
-            [
-                f"{v['pergunta']} => {v['resposta']} (Peso: {v['peso']})"
-                for v in respostas_dict.values()
-            ]
+            [f"{v['pergunta']} => {v['resposta']} (Peso: {v['peso']})" for v in rd.values()]
         )
         writer.writerow(
             {
@@ -102,64 +407,6 @@ def export_resultados_csv():
     )
 
 
-# Funções/rotas
-# @main_bp.route("/admin/reorder_questions", methods=["POST"])
-# @login_required
-# def reorder_questions():
-#     if not request.is_json:
-#         return {"success": False, "message": "Requisição inválida."}, 400
-#     data = request.get_json()
-#     order_list = data.get("order")
-#     if not order_list or not isinstance(order_list, list):
-#         return {"success": False, "message": "Lista de ordem inválida."}, 400
-#     try:
-#         for idx, qid in enumerate(order_list):
-#             question = Question.query.get(int(qid))
-#             if question:
-#                 question.order = idx + 1
-#         db.session.commit()
-#         return {"success": True}, 200
-#     except Exception as e:
-#         db.session.rollback()
-#         return {"success": False, "message": f"Erro ao salvar ordem: {str(e)}"}, 500
-
-
-@main_bp.route("/delete_option_ajax", methods=["POST"])
-@login_required
-def delete_option_ajax():
-    if not request.is_json:
-        return {"success": False, "message": "Requisição inválida."}, 400
-    data = request.get_json()
-    option_id = data.get("option_id")
-    question_id = data.get("question_id")
-    if not option_id or not question_id:
-        return {"success": False, "message": "Dados insuficientes."}, 400
-
-    option = Option.query.get(option_id)
-    if not option or str(option.question_id) != str(question_id):
-        return {"success": False, "message": "Opção não encontrada."}, 404
-
-    # Verificar se não é a única opção da pergunta
-    question = Question.query.get(question_id)
-    if question and len(question.options) <= 1:
-        return {
-            "success": False,
-            "message": "Não é possível excluir a única opção da pergunta!",
-        }, 400
-
-    db.session.delete(option)
-    db.session.commit()
-    return {"success": True, "message": "Opção excluída com sucesso!"}, 200
-
-
-@main_bp.route("/admin")
-@login_required
-def admin():
-    questions = Question.query.order_by(Question.order).all()
-    resultados = Resultado.query.order_by(Resultado.data.desc()).all()
-    return render_template("admin.html", questions=questions, resultados=resultados)
-
-
 @main_bp.route("/admin/add_question", methods=["POST"])
 @login_required
 def add_question():
@@ -167,6 +414,7 @@ def add_question():
         return {"success": success, "message": message or ""}, 200 if success else 400
 
     text = request.form.get("question_text")
+    qid = request.form.get("questionnaire_id", type=int)
     if not text:
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return ajax_response(False, "Digite o texto da pergunta!")
@@ -176,7 +424,7 @@ def add_question():
     last_question = Question.query.order_by(Question.id.desc()).first()
     order = (last_question.order + 1) if last_question else 1
 
-    question = Question(text=text, order=order)
+    question = Question(text=text, order=order, questionnaire_id=qid)
     db.session.add(question)
     db.session.flush()
 
@@ -185,7 +433,6 @@ def add_question():
 
     for text, weight in zip(option_texts, option_weights):
         if text and weight:
-            # Normalizar decimal (trocar vírgula por ponto para ter um padrão)
             weight_normalized = str(weight).replace(",", ".")
             try:
                 weight_float = float(weight_normalized)
@@ -259,11 +506,9 @@ def change_password():
 def edit_question(question_id):
     question = Question.query.get_or_404(question_id)
 
-    # AJAX helper
     def ajax_response(success, message=None):
         return {"success": success, "message": message or ""}, 200 if success else 400
 
-    # Excluir pergunta
     if request.form.get("delete_question"):
         db.session.delete(question)
         db.session.commit()
@@ -272,7 +517,6 @@ def edit_question(question_id):
         flash("Pergunta excluída com sucesso!")
         return redirect(url_for("main.admin"))
 
-    # Excluir opção específica
     delete_option_id = request.form.get("delete_option")
     if delete_option_id:
         option = Option.query.get(delete_option_id)
@@ -284,38 +528,30 @@ def edit_question(question_id):
             flash("Opção excluída com sucesso!")
         return redirect(url_for("main.admin"))
 
-    # Atualizar pergunta
     new_text = request.form.get("question_text")
     if new_text:
         question.text = new_text
 
-    # Adicionar nova opção se fornecida
     new_option_text = request.form.get("new_option_text")
     new_option_weight = request.form.get("new_option_weight")
     if new_option_text and new_option_weight:
         try:
             weight = float(new_option_weight.replace(",", "."))
-            new_option = Option(
-                text=new_option_text, weight=weight, question_id=question.id
-            )
+            new_option = Option(text=new_option_text, weight=weight, question_id=question.id)
             db.session.add(new_option)
         except ValueError:
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return ajax_response(
-                    False, "Peso da nova opção deve ser um número válido!"
-                )
+                return ajax_response(False, "Peso da nova opção deve ser um número válido!")
 
-    # Atualizar opções existentes
     for option in question.options:
-        new_option_text = request.form.get(f"option_text_{option.id}")
-        new_option_weight = request.form.get(f"option_weight_{option.id}")
+        opt_text = request.form.get(f"option_text_{option.id}")
+        opt_weight = request.form.get(f"option_weight_{option.id}")
 
-        if new_option_text is not None:
-            option.text = new_option_text
-        if new_option_weight is not None:
+        if opt_text is not None:
+            option.text = opt_text
+        if opt_weight is not None:
             try:
-                # Normalizar vírgula para ponto
-                weight_str = new_option_weight.replace(",", ".")
+                weight_str = opt_weight.replace(",", ".")
                 option.weight = float(weight_str)
             except ValueError:
                 pass
@@ -384,9 +620,7 @@ def import_questions():
                 current_question = None
         db.session.commit()
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return ajax_response(
-                True, f"{imported_count} pergunta(s) importada(s) com sucesso!"
-            )
+            return ajax_response(True, f"{imported_count} pergunta(s) importada(s) com sucesso!")
         flash(f"{imported_count} pergunta(s) importada(s) com sucesso!")
     except Exception as e:
         db.session.rollback()
@@ -399,16 +633,11 @@ def import_questions():
 @main_bp.route("/admin/delete_all_resultados", methods=["POST"])
 @login_required
 def delete_all_resultados():
-    """Apagar todos os questionários respondidos"""
-
     def ajax_response(success, message=None):
         return {"success": success, "message": message or ""}, 200 if success else 400
 
     try:
-        # Contar quantos serão apagados
         count = Resultado.query.count()
-
-        # Apagar todos os resultados
         Resultado.query.delete()
         db.session.commit()
 
@@ -416,7 +645,6 @@ def delete_all_resultados():
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return ajax_response(True, message)
         flash(message)
-
     except Exception as e:
         db.session.rollback()
         error_msg = f"Erro ao apagar questionários: {str(e)}"
@@ -430,18 +658,12 @@ def delete_all_resultados():
 @main_bp.route("/admin/delete_all_questions", methods=["POST"])
 @login_required
 def delete_all_questions():
-    """Apagar todas as perguntas cadastradas e suas opções"""
-
     def ajax_response(success, message=None):
         return {"success": success, "message": message or ""}, 200 if success else 400
 
     try:
-        # Contar quantas serão apagadas
         count = Question.query.count()
-
-        # Apagar todas as opções primeiro (devido ao relacionamento)
         Option.query.delete()
-        # Depois apagar todas as perguntas
         Question.query.delete()
         db.session.commit()
 
@@ -449,7 +671,6 @@ def delete_all_questions():
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return ajax_response(True, message)
         flash(message)
-
     except Exception as e:
         db.session.rollback()
         error_msg = f"Erro ao apagar perguntas: {str(e)}"
@@ -478,7 +699,6 @@ def clear_all_results_ajax():
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return ajax_response(True, message)
         flash(message)
-
     except Exception as e:
         db.session.rollback()
         error_msg = f"Erro ao apagar resultados: {str(e)}"
