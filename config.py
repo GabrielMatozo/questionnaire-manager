@@ -2,7 +2,7 @@ import os
 
 
 class Config:
-    SECRET_KEY = "questionnaire-secret-key-2025"
+    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-secret-key")
 
     USER_DOCUMENTS = os.path.join(os.path.expanduser("~"), "Documents")
     DB_FOLDER = os.path.join(USER_DOCUMENTS, "questionnaire-manager")
